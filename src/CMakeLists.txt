@@ -194,6 +194,7 @@ add_library(${PROJECT_NAME} STATIC
     Window_GCWii.c
     Window_MSDOS.c
     Window_MacClassic.c
+    Window_MRE.c
     Window_N64.c
     Window_NDS.c
     Window_OS2.c

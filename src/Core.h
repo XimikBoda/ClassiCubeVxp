@@ -201,6 +201,7 @@ typedef cc_uint8  cc_bool;
 	#undef  CC_BUILD_NETWORKING
 	#undef  CC_BUILD_PLUGINS
 	#undef  CC_BUILD_ADVLIGHTING
+	#undef  CC_BUILD_FREETYPE
 	#define DEFAULT_GFX_BACKEND CC_GFX_BACKEND_SOFTGPU
 #elif defined _WIN32
 	#define CC_BUILD_WIN

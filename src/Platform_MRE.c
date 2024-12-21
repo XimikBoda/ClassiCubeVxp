@@ -1,12 +1,19 @@
 #include "Core.h"
 #if defined CC_BUILD_MRE
-
 #include "_PlatformBase.h"
 #include "Utils.h"
+#include "Funcs.h"
 #include <vmsys.h>
 #include <vmio.h>
 #include <vmchset.h>
 #include <vmstdlib.h>
+
+const cc_result ReturnCode_FileShareViolation = 1000000000; /* TODO: not used apparently */
+const cc_result ReturnCode_FileNotFound = VM_FILE_OPEN_ERROR;
+const cc_result ReturnCode_DirectoryExists = 0;
+const cc_result ReturnCode_SocketInProgess = -1;
+const cc_result ReturnCode_SocketWouldBlock = -1;
+const cc_result ReturnCode_SocketDropped = -1;
 
 const char* Platform_AppNameSuffix = "VXP";
 cc_bool Platform_ReadonlyFilesystem;
@@ -294,11 +301,96 @@ cc_result Socket_CheckWritable(cc_socket s, cc_bool* writable) {
 
 
 /*########################################################################################################################*
+*-----------------------------------------------------Process/Module------------------------------------------------------*
+*#########################################################################################################################*/
+cc_bool Process_OpenSupported = false;
+
+cc_result Process_StartGame2(const cc_string* args, int numArgs) {
+	return SetGameArgs(args, numArgs);
+}
+
+void Process_Exit(cc_result code) { exit(code); }
+
+cc_result Process_StartOpen(const cc_string* args) {
+	return ERR_NOT_SUPPORTED;
+}
+
+/*########################################################################################################################*
+*--------------------------------------------------------Updater----------------------------------------------------------*
+*#########################################################################################################################*/
+cc_bool Updater_Supported = false;
+
+cc_bool Updater_Clean(void) { return true; }
+
+const struct UpdaterInfo Updater_Info = { "&eCompile latest source code to update", 0 };
+
+cc_result Updater_Start(const char** action) {
+	return ERR_NOT_SUPPORTED;
+}
+
+cc_result Updater_GetBuildTime(cc_uint64* timestamp) {
+	return ERR_NOT_SUPPORTED;
+}
+
+cc_result Updater_MarkExecutable(void) {
+	return ERR_NOT_SUPPORTED;
+}
+
+cc_result Updater_SetNewBuildTime(cc_uint64 timestamp) {
+	return ERR_NOT_SUPPORTED;
+}
+
+
+/*########################################################################################################################*
+*-------------------------------------------------------Dynamic lib-------------------------------------------------------*
+*#########################################################################################################################*/
+const cc_string DynamicLib_Ext = String_FromConst(".dll");
+
+void* DynamicLib_Load2(const cc_string* path) {
+	return NULL;
+}
+
+void* DynamicLib_Get2(void* lib, const char* name) {
+	return NULL;
+}
+
+cc_bool DynamicLib_DescribeError(cc_string* dst) {
+	return false;
+}
+
+
+/*########################################################################################################################*
 *--------------------------------------------------------Platform---------------------------------------------------------*
 *#########################################################################################################################*/
+void MRE_handle_sysevt(VMINT message, VMINT param) {
+#ifdef		SUPPORT_BG
+	switch (message) {
+	case VM_MSG_CREATE:
+		break;
+	case VM_MSG_PAINT:
+		break;
+	case VM_MSG_HIDE:	
+		break;
+	case VM_MSG_QUIT:
+		break;
+	}
+#else
+	switch (message) {
+	case VM_MSG_CREATE:
+	case VM_MSG_ACTIVE:
+		break;
+	case VM_MSG_PAINT:
+		break;
+	case VM_MSG_INACTIVE:
+		break;	
+	case VM_MSG_QUIT:
+		break;	
+	}
+#endif
+}
+
 void Platform_Init(void) {
-	ResetGraph(0);
-	Stopwatch_Init();
+	vm_reg_sysevt_callback(MRE_handle_sysevt);
 }
 
 void Platform_Free(void) {}
@@ -306,12 +398,6 @@ void Platform_Free(void) {}
 cc_bool Platform_DescribeError(cc_result res, cc_string* dst) {
 	return false;
 }
-
-cc_bool Process_OpenSupported = false;
-cc_result Process_StartOpen(const cc_string* args) {
-	return ERR_NOT_SUPPORTED;
-}
-
 
 
 /*########################################################################################################################*

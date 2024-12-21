@@ -1,0 +1,124 @@
+#include "Core.h"
+#if defined CC_BUILD_MRE
+#include "Window.h"
+#include "Errors.h"
+#include "Bitmap.h"
+#include "Graphics.h"
+#include <vmsys.h>
+#include <vmgraph.h>
+
+VMINT layer_hdl[1];
+VMUINT8* layer_buf = 0;
+
+VMINT screen_w = 0;
+VMINT screen_h = 0;
+
+struct _DisplayData DisplayInfo;
+struct cc_window WindowInfo;
+
+void Window_PreInit(void) {}
+void Window_Init(void) {
+	screen_w = vm_graphic_get_screen_width();
+	screen_h = vm_graphic_get_screen_height();
+
+
+	DisplayInfo.Width = screen_w;
+	DisplayInfo.Height = screen_h;
+	DisplayInfo.ScaleX = 0.5f;
+	DisplayInfo.ScaleY = 0.5f;
+}
+
+void Window_Free(void) {}
+
+void Window_Create2D(int width, int height) {
+}
+
+void Window_Create3D(int width, int height) {
+}
+
+void Window_Destroy(void) {}
+
+void Window_SetTitle(const cc_string* title) {}
+void Clipboard_GetText(cc_string* value) {}
+void Clipboard_SetText(const cc_string* value) {}
+
+int Window_GetWindowState(void) { return WINDOW_STATE_FULLSCREEN; }
+cc_result Window_EnterFullscreen(void) { return 0; }
+cc_result Window_ExitFullscreen(void) { return 0; }
+int Window_IsObscured(void) { return 0; }
+
+void Window_Show(void) {}
+void Window_SetSize(int width, int height) {}
+
+void Window_RequestClose(void) {
+}
+
+
+/*########################################################################################################################*
+*------------------------------------------------------Framebuffer--------------------------------------------------------*
+*#########################################################################################################################*/
+void Window_AllocFramebuffer(struct Bitmap* bmp, int width, int height) {
+	bmp->scan0 = (BitmapCol*)Mem_Alloc(width * height, BITMAPCOLOR_SIZE, "window pixels");
+	bmp->width = width;
+	bmp->height = height;
+}
+
+void Window_DrawFramebuffer(Rect2D r, struct Bitmap* bmp) {
+	//TODO
+}
+
+void Window_FreeFramebuffer(struct Bitmap* bmp) {
+	Mem_Free(bmp->scan0);
+}
+
+
+/*########################################################################################################################*
+*-------------------------------------------------------Gamepads----------------------------------------------------------*
+*#########################################################################################################################*/
+
+void Gamepads_Init(void) {}
+void Gamepads_Process(float delta) {}
+
+/*########################################################################################################################*
+*----------------------------------------------------Input processing-----------------------------------------------------*
+*#########################################################################################################################*/
+void Window_ProcessEvents(float delta) {
+}
+
+void Cursor_SetPosition(int x, int y) {} 
+
+void Window_EnableRawMouse(void) {}
+void Window_UpdateRawMouse(void) {}
+void Window_DisableRawMouse(void) {}
+
+
+/*########################################################################################################################*
+*------------------------------------------------------Soft keyboard------------------------------------------------------*
+*#########################################################################################################################*/
+void OnscreenKeyboard_Open(struct OpenKeyboardArgs* args) {
+}
+
+void OnscreenKeyboard_SetText(const cc_string* text) {
+}
+
+void OnscreenKeyboard_Close(void) {
+}
+
+
+/*########################################################################################################################*
+*-------------------------------------------------------Misc/Other--------------------------------------------------------*
+*#########################################################################################################################*/
+void Window_ShowDialog(const char* title, const char* msg) {
+	/* TODO implement */
+	Platform_LogConst(title);
+	Platform_LogConst(msg);
+}
+
+cc_result Window_OpenFileDialog(const struct OpenFileDialogArgs* args) {
+	return ERR_NOT_SUPPORTED;
+}
+
+cc_result Window_SaveFileDialog(const struct SaveFileDialogArgs* args) {
+	return ERR_NOT_SUPPORTED;
+}
+#endif
