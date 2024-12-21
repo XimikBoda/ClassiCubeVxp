@@ -12,6 +12,8 @@ option(BACKGROUND "App can work background" OFF)
 set(MRE_SDK "$ENV{MRE_SDK}" CACHE STRING "MRE SDK dir")
 set(TinyMRESDK "$ENV{TinyMRESDK}" CACHE STRING "TinyMRESDK dir")
 
+add_definitions(-DMRE)
+
 if(BACKGROUND)
     add_definitions(-DSUPPORT_BG)
 endif()
@@ -21,5 +23,6 @@ add_subdirectory(core)
 add_subdirectory(mreapi)
 add_subdirectory(vxp)
 add_subdirectory(run)
+add_subdirectory(src)
 
 add_subdirectory(main)
