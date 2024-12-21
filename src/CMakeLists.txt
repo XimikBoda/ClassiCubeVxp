@@ -242,4 +242,4 @@ add_library(${PROJECT_NAME} STATIC
     main.h
 )
 
-target_link_libraries(${PROJECT_NAME} mreapi)
+target_link_libraries(${PROJECT_NAME} mreapi libco)

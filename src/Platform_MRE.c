@@ -7,6 +7,8 @@
 #include <vmio.h>
 #include <vmchset.h>
 #include <vmstdlib.h>
+#include <vmtimer.h>
+#include <thread.h>
 
 const cc_result ReturnCode_FileShareViolation = 1000000000; /* TODO: not used apparently */
 const cc_result ReturnCode_FileNotFound = VM_FILE_OPEN_ERROR;
@@ -228,8 +230,16 @@ cc_result File_Length(cc_file file, cc_uint32* len) {
 /*########################################################################################################################*
 *--------------------------------------------------------Threading--------------------------------------------------------*
 *#########################################################################################################################*/
+void Thread_MRE_timer(int timer_id) {
+	vm_delete_timer(timer_id);
+	
+	thread_next();
+}
+
 void Thread_Sleep(cc_uint32 milliseconds) {
-	// TODO sleep a bit
+	vm_create_timer(milliseconds, Thread_MRE_timer);
+
+	thread_next();
 }
 
 void Thread_Run(void** handle, Thread_StartFunc func, int stackSize, const char* name) {
@@ -316,7 +326,10 @@ cc_result Process_StartGame2(const cc_string* args, int numArgs) {
 	return SetGameArgs(args, numArgs);
 }
 
-void Process_Exit(cc_result code) { exit(code); }
+void Process_Exit(cc_result code) { 
+	vm_exit_app();
+	thread_next();
+}
 
 cc_result Process_StartOpen(const cc_string* args) {
 	return ERR_NOT_SUPPORTED;

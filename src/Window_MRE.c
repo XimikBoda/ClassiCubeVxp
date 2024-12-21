@@ -74,6 +74,7 @@ void Window_AllocFramebuffer(struct Bitmap* bmp, int width, int height) {
 	bmp->scan0 = (BitmapCol*)Mem_Alloc(width * height, BITMAPCOLOR_SIZE, "window pixels");
 	bmp->width = width;
 	bmp->height = height;
+	Input_AddTouch(0, 0, 0);
 }
 
 void Window_DrawFramebuffer(Rect2D r, struct Bitmap* bmp) {

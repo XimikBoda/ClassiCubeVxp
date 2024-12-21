@@ -24,5 +24,6 @@ add_subdirectory(mreapi)
 add_subdirectory(vxp)
 add_subdirectory(run)
 add_subdirectory(src)
+add_subdirectory(libco)
 
 add_subdirectory(main)

@@ -4,4 +4,4 @@ set(PROJECT_NAME "main")
 
 add_library(${PROJECT_NAME} STATIC "main.c")
 
-target_link_libraries(${PROJECT_NAME} mreapi scr)
+target_link_libraries(${PROJECT_NAME} mreapi scr libco)
