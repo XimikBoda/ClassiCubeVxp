@@ -8,6 +8,9 @@
 #include <vmchset.h>
 #include <vmstdlib.h>
 
+const char* Platform_AppNameSuffix = "VXP";
+cc_bool Platform_ReadonlyFilesystem;
+cc_bool Platform_SingleProcess;
 
 /*########################################################################################################################*
 *---------------------------------------------------------Memory----------------------------------------------------------*
@@ -318,6 +321,43 @@ cc_result Process_StartOpen(const cc_string* args) {
 
 static cc_result GetMachineID(cc_uint32* key) {
 	Mem_Copy(key, MACHINE_KEY, sizeof(MACHINE_KEY) - 1);
+	return 0;
+}
+
+
+/*########################################################################################################################*
+*-------------------------------------------------------Encryption--------------------------------------------------------*
+*#########################################################################################################################*/
+cc_result Platform_Encrypt(const void* data, int len, cc_string* dst) {
+	return ERR_NOT_SUPPORTED;
+}
+
+cc_result Platform_Decrypt(const void* data, int len, cc_string* dst) {
+	return ERR_NOT_SUPPORTED;
+}
+
+cc_result Platform_GetEntropy(void* data, int len) {
+	return ERR_NOT_SUPPORTED;
+}
+
+
+/*########################################################################################################################*
+*-----------------------------------------------------Configuration-------------------------------------------------------*
+*#########################################################################################################################*/
+int Platform_GetCommandLineArgs(int argc, STRING_REF char** argv, cc_string* args) {
+	int i, count;
+	argc--; argv++; /* skip executable path argument */
+	if (gameHasArgs) return GetGameArgs(args);
+
+	count = min(argc, GAME_MAX_CMDARGS);
+	for (i = 0; i < count; i++)
+	{
+		args[i] = String_FromReadonly(argv[i]);
+	}
+	return count;
+}
+
+cc_result Platform_SetDefaultCurrentDirectory(int argc, char** argv) {
 	return 0;
 }
 
