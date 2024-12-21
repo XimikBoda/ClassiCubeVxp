@@ -53,6 +53,11 @@ void Platform_Log(const char* msg, int len) {
 	int ret;
 	/* Avoid "ignoring return value of 'write' declared with attribute 'warn_unused_result'" warning */
 	//TODO
+#ifdef _WIN32 //MoDis
+	ret = write(fileno(stdout), msg, len);
+	ret = write(fileno(stdout), "\n", 1);
+	//printf("%s\n", msg);
+#endif
 }
 
 TimeMS DateTime_CurrentUTC(void) {
@@ -104,9 +109,11 @@ cc_uint64 Stopwatch_ElapsedMicroseconds(cc_uint64 beg, cc_uint64 end) {
 *#########################################################################################################################*/
 void Platform_EncodePath(cc_filepath* dst, const cc_string* path) {
 	VMWCHAR* wstr = dst->buffer;
-	char temp[FILENAME_SIZE];
+	char temp[FILENAME_SIZE*2] = "e:\\ClassiCube\\";
+	char *tempn = temp + strlen(temp);
 
-	String_EncodeUtf8(temp, path); //TODO
+	String_EncodeUtf8(tempn, path); //TODO
+
 	vm_ascii_to_ucs2(wstr, FILENAME_SIZE, temp);
 }
 
@@ -390,6 +397,10 @@ void MRE_handle_sysevt(VMINT message, VMINT param) {
 }
 
 void Platform_Init(void) {
+	VMWCHAR temp_wstr[FILENAME_SIZE];
+	vm_ascii_to_ucs2(temp_wstr, FILENAME_SIZE, "e:\\ClassiCube");
+	vm_file_mkdir(temp_wstr);
+
 	vm_reg_sysevt_callback(MRE_handle_sysevt);
 }
 

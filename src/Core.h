@@ -192,6 +192,7 @@ typedef cc_uint8  cc_bool;
 	#define DEFAULT_NET_BACKEND CC_NET_BACKEND_BUILTIN
 	#define DEFAULT_GFX_BACKEND CC_GFX_BACKEND_D3D11
 #elif defined MRE
+	#define CC_BUILD_TOUCH
 	#define CC_BUILD_MRE
 	#define CC_BUILD_LOWMEM
 	#define CC_BUILD_NOMUSIC
