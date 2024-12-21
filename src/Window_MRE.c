@@ -3,8 +3,10 @@
 #include "Window.h"
 #include "Errors.h"
 #include "Bitmap.h"
+#include "Input.h"
 #include "Graphics.h"
 #include <vmsys.h>
+#include <vmio.h>
 #include <vmgraph.h>
 
 VMINT layer_hdl[1];
@@ -15,6 +17,8 @@ VMINT screen_h = 0;
 
 struct _DisplayData DisplayInfo;
 struct cc_window WindowInfo;
+
+void MRE_pen_handler(VMINT event, VMINT x, VMINT y);
 
 void Window_PreInit(void) {}
 void Window_Init(void) {
@@ -39,6 +43,9 @@ void Window_Init(void) {
 
 	DisplayInfo.ContentOffsetX = 10;
 	DisplayInfo.ContentOffsetY = 10;
+
+	vm_reg_pen_callback(MRE_pen_handler);
+	Input_SetTouchMode(true);
 }
 
 void Window_Free(void) {}
@@ -74,7 +81,6 @@ void Window_AllocFramebuffer(struct Bitmap* bmp, int width, int height) {
 	bmp->scan0 = (BitmapCol*)Mem_Alloc(width * height, BITMAPCOLOR_SIZE, "window pixels");
 	bmp->width = width;
 	bmp->height = height;
-	Input_AddTouch(0, 0, 0);
 }
 
 void Window_DrawFramebuffer(Rect2D r, struct Bitmap* bmp) {
@@ -102,6 +108,26 @@ void Gamepads_Process(float delta) {}
 /*########################################################################################################################*
 *----------------------------------------------------Input processing-----------------------------------------------------*
 *#########################################################################################################################*/
+void MRE_pen_handler(VMINT event, VMINT x, VMINT y) {
+	switch (event) {
+	case VM_PEN_EVENT_TAP:
+		Input_AddTouch(0, x, y);
+		break;
+	case VM_PEN_EVENT_MOVE:
+	case VM_PEN_EVENT_LONG_TAP:
+	case VM_PEN_EVENT_DOUBLE_CLICK:
+	case VM_PEN_EVENT_REPEAT:
+		Input_UpdateTouch(0, x, y);
+		break;
+	case VM_PEN_EVENT_RELEASE:
+	case VM_PEN_EVENT_ABORT:
+		Input_RemoveTouch(0, x, y);
+		break;
+	}
+}
+
+
+
 void Window_ProcessEvents(float delta) {
 }
 
