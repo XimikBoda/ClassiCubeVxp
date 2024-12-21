@@ -1,6 +1,6 @@
 #include "vmsys.h"
 
-extern "C" int main(int argc, char** argv);
+int main(int argc, char** argv);
 
 void vm_main(void) {
 	char* arg = "";
