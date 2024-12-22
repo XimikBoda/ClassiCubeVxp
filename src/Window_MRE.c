@@ -19,6 +19,7 @@ struct _DisplayData DisplayInfo;
 struct cc_window WindowInfo;
 
 void MRE_pen_handler(VMINT event, VMINT x, VMINT y);
+void MRE_key_handler(VMINT event, VMINT keycode);
 
 void Window_PreInit(void) {}
 void Window_Init(void) {
@@ -32,6 +33,8 @@ void Window_Init(void) {
 	DisplayInfo.Height = screen_h;
 	DisplayInfo.ScaleX = 0.5f;
 	DisplayInfo.ScaleY = 0.5f;
+	//DisplayInfo.ScaleX = 1.f;
+	//DisplayInfo.ScaleY = 1.f;
 
 	Window_Main.Width = DisplayInfo.Width;
 	Window_Main.Height = DisplayInfo.Height;
@@ -45,6 +48,7 @@ void Window_Init(void) {
 	DisplayInfo.ContentOffsetY = 10;
 
 	vm_reg_pen_callback(MRE_pen_handler);
+	vm_reg_keyboard_callback(MRE_key_handler);
 	Input_SetTouchMode(true);
 }
 
@@ -73,6 +77,8 @@ void Window_SetSize(int width, int height) {}
 void Window_RequestClose(void) {
 }
 
+void Window_LockLandscapeOrientation(cc_bool lock) {}
+
 
 /*########################################################################################################################*
 *------------------------------------------------------Framebuffer--------------------------------------------------------*
@@ -87,8 +93,11 @@ void Window_DrawFramebuffer(Rect2D r, struct Bitmap* bmp) {
 	cc_uint32* buf = bmp->scan0;
 	cc_uint16* lbuf = layer_buf;
 	int max_i = screen_w * screen_h;
-	for (int i = 0; i < max_i; i++)
-		lbuf[i] = VM_COLOR_INT_TO_565(buf[i]);
+	for (int i = 0; i < max_i; i++) {
+		cc_uint8* rgb = buf++;
+		*lbuf++ = VM_COLOR_888_TO_565(rgb[2], rgb[1], rgb[0]);
+	}
+		//lbuf[i] = VM_COLOR_INT_TO_565(buf[i]);
 	vm_graphic_flush_layer(layer_hdl, 1);
 	//TODO
 }
@@ -126,9 +135,45 @@ void MRE_pen_handler(VMINT event, VMINT x, VMINT y) {
 	}
 }
 
+static int MapMreKeys(VMINT keycode) {
+	switch (keycode) {
+	case VM_KEY_UP:				return CCKEY_UP;
+	case VM_KEY_DOWN:			return CCKEY_DOWN;
+	case VM_KEY_LEFT:			return CCKEY_LEFT;
+	case VM_KEY_RIGHT:			return CCKEY_RIGHT;
+	case VM_KEY_OK:				return CCKEY_ENTER;
+	case VM_KEY_LEFT_SOFTKEY:	return CCKEY_ESCAPE;
+	case VM_KEY_NUM1:			return CCKEY_Q;
+	case VM_KEY_NUM2:			return CCKEY_W;
+	case VM_KEY_NUM3:			return CCKEY_E;
+	case VM_KEY_NUM4:			return CCKEY_A;
+	case VM_KEY_NUM5:			return CCKEY_S;
+	case VM_KEY_NUM6:			return CCKEY_D;
+	case VM_KEY_NUM7:			return CCKEY_Z;
+	case VM_KEY_NUM8:			return CCKEY_X;
+	case VM_KEY_NUM9:			return CCKEY_SPACE;
+	default:					return INPUT_NONE;
+	}
+}
 
+void MRE_key_handler(VMINT event, VMINT keycode) {
+	cc_bool pressed = false;
+	switch (event) {
+	case VM_KEY_EVENT_DOWN:
+	case VM_KEY_EVENT_LONG_PRESS:
+	case VM_KEY_EVENT_REPEAT:
+		pressed = true;
+		break;
+	case VM_KEY_EVENT_UP:
+		pressed = false;
+		break;
+	}
+	int key = MapMreKeys(keycode);
+	if (key) Input_Set(key, pressed);
+}
 
 void Window_ProcessEvents(float delta) {
+	Thread_Sleep(0);
 }
 
 void Cursor_SetPosition(int x, int y) {}

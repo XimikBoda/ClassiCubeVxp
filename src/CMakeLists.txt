@@ -93,7 +93,6 @@ add_library(${PROJECT_NAME} STATIC
     LBackend.c
     LBackend.h
     LBackend_Android.c
-    LBackend_ios.m
     LScreens.c
     LScreens.h
     LWeb.c
@@ -214,8 +213,6 @@ add_library(${PROJECT_NAME} STATIC
     Window_X11.c
     Window_Xbox.c
     Window_Xbox360.c
-    Window_cocoa.m
-    Window_ios.m
     World.c
     World.h
     _GLShared.h

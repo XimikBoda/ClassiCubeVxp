@@ -192,13 +192,20 @@ typedef cc_uint8  cc_bool;
 	#define DEFAULT_NET_BACKEND CC_NET_BACKEND_BUILTIN
 	#define DEFAULT_GFX_BACKEND CC_GFX_BACKEND_D3D11
 #elif defined MRE
-	#define CC_BUILD_TOUCH
 	#define CC_BUILD_MRE
+	#define CC_BUILD_MOBILE
+	#define CC_BUILD_TOUCH
 	#define CC_BUILD_LOWMEM
+	#define CC_BUILD_TINYMEM
+	#define CC_BUILD_SMALLSTACK
+	#define CC_BUILD_TINYSTACK
 	#define CC_BUILD_NOMUSIC
 	#define CC_BUILD_NOSOUNDS
 	#define CC_BUILD_NOFPU
-	#define CC_BUILD_COOPTHREADE
+	#define CC_DISABLE_EXTRA_MODELS
+	#define CC_BUILD_COOPTHREADED
+	#define CC_DISABLE_ANIMATIONS /* Very costly in FPU less system */
+	#define CC_DISABLE_HELDBLOCK  /* Very costly in FPU less system */
 	#undef  CC_BUILD_NETWORKING
 	#undef  CC_BUILD_PLUGINS
 	#undef  CC_BUILD_ADVLIGHTING

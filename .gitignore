@@ -232,4 +232,5 @@ UpgradeLog*.htm
 .vs
 .vscode
 build
+buildr
 vs

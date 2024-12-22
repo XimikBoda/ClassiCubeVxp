@@ -18,8 +18,8 @@ const cc_result ReturnCode_SocketWouldBlock = -1;
 const cc_result ReturnCode_SocketDropped = -1;
 
 const char* Platform_AppNameSuffix = "VXP";
-cc_bool Platform_ReadonlyFilesystem;
-cc_bool Platform_SingleProcess;
+cc_bool Platform_ReadonlyFilesystem = false;
+cc_bool Platform_SingleProcess = true;
 
 /*########################################################################################################################*
 *---------------------------------------------------------Memory----------------------------------------------------------*
@@ -422,6 +422,8 @@ void Platform_Free(void) {}
 cc_bool Platform_DescribeError(cc_result res, cc_string* dst) {
 	return false;
 }
+
+void Platform_ShareScreenshot(const cc_string* filename) {}
 
 
 /*########################################################################################################################*

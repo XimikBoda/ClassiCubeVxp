@@ -4,7 +4,7 @@ project ("ClassiCubeVxp")
 
 set(APP_NAME "ClassiCube")
 set(DEVELOPER_NAME "Ximik_Boda")
-set(RAM "3000" CACHE STRING "Ram requirement (in kb)")
+set(RAM "3250" CACHE STRING "Ram requirement (in kb)")
 set(IMSI "1234567890" CACHE STRING "Imsi of first SIM-card")
 set(API "File SIM card ProMng" CACHE STRING "Api for app")
 option(BACKGROUND "App can work background" OFF)
