@@ -794,6 +794,9 @@
     <ClCompile Include="Window_WiiU.c">
       <Filter>Source Files\Window</Filter>
     </ClCompile>
+    <ClCompile Include="Graphics_Small3dlib.c">
+      <Filter>Source Files\Graphics</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ResourceCompile Include="..\misc\windows\CCicon.rc">

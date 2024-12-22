@@ -487,6 +487,7 @@
     <ClCompile Include="Graphics_WiiU.c" />
     <ClCompile Include="Graphics_Xbox.c" />
     <ClCompile Include="Graphics_Xbox360.c" />
+    <ClCompile Include="Graphics_Small3dlib.c" />
     <ClCompile Include="Gui.c" />
     <ClCompile Include="HeldBlockRenderer.c" />
     <ClCompile Include="Http_Web.c" />
