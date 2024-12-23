@@ -9,8 +9,18 @@
 static int fb_width, fb_height;
 static struct Bitmap fb_bmp;
 
+#define S3L_FLAT 0
+#define S3L_NEAR_CROSS_STRATEGY 3
+#define S3L_PERSPECTIVE_CORRECTION 2
+#define S3L_SORT 0
+#define S3L_STENCIL_BUFFER 0
+#define S3L_Z_BUFFER 1
+//#define S3L_USE_WIDER_TYPES 1
+
+
 #define S3L_RESOLUTION_X (fb_width)
 #define S3L_RESOLUTION_Y (fb_height)
+//#define S3L_MAX_PIXELS (500*500)
 
 #define S3L_PIXEL_FUNCTION drawPixel
 
@@ -22,42 +32,6 @@ static void* gfx_vertices;
 
 uint32_t previousTriangle = -1;
 S3L_Vec4 uv0, uv1, uv2;
-
-void drawPixel(S3L_PixelInfo* p) {
-	if (p->triangleID != previousTriangle)
-	{
-		const S3L_Index* uvIndices;
-		const S3L_Unit* uvs;
-
-		/*if (p->modelIndex == 0)
-		{
-			uvIndices = cityUVIndices;
-			uvs = cityUVs;
-		}
-		else
-		{
-			uvIndices = carUVIndices;
-			uvs = carUVs;
-		}*/
-
-		//S3L_getIndexedTriangleValues(p->triangleIndex, uvIndices, uvs, 2, &uv0, &uv1, &uv2);
-		previousTriangle = p->triangleID;
-	}
-
-	uint8_t r, g, b;
-	uint16_t c;
-
-	S3L_Unit uv[2];
-
-	//uv[0] = S3L_interpolateBarycentric(uv0.x, uv1.x, uv2.x, p->barycentric);
-	//uv[1] = S3L_interpolateBarycentric(uv0.y, uv1.y, uv2.y, p->barycentric);
-
-	//sampleTexture(cityTexture, uv[0] >> 1, uv[1] >> 1, &c);
-
-
-	fb_bmp.scan0[p->x + p->y * fb_bmp.width] = 0xFF000000 | (p->triangleIndex * 2 << 16) | (p->triangleID * 2 << 8) | (p->modelIndex * 4);
-	//setPixel(p->x, p->y, c);
-}
 
 
 void Gfx_RestoreState(void) {
@@ -72,14 +46,14 @@ void Gfx_Create(void) {
 	Gfx.MaxTexHeight = 4096;
 	Gfx.Created = true;
 
-	/*Gfx_RestoreState();
+	Gfx_RestoreState();
 
-	SetupContexts(Window_Main.Width, Window_Main.Height, 63, 0, 127);
-	SetDispMask(1);
+	//SetupContexts(Window_Main.Width, Window_Main.Height, 63, 0, 127);
+	//SetDispMask(1);
 
-	InitGeom();
-	gte_SetGeomOffset(Window_Main.Width / 2, Window_Main.Height / 2);
-	gte_SetGeomScreen(Window_Main.Height / 2);*/
+	//InitGeom();
+	//gte_SetGeomOffset(Window_Main.Width / 2, Window_Main.Height / 2);
+	//gte_SetGeomScreen(Window_Main.Height / 2);
 }
 
 void Gfx_Free(void) {
@@ -89,27 +63,40 @@ void Gfx_Free(void) {
 /*########################################################################################################################*
 *---------------------------------------------------------Textures--------------------------------------------------------*
 *#########################################################################################################################*/
+struct Bitmap* gfx_texture = 0;
+
 GfxResourceID Gfx_AllocTexture(struct Bitmap* bmp, int rowWidth, cc_uint8 flags, cc_bool mipmaps) {
+	struct Bitmap* bmpt = (struct Bitmap*)Mem_Alloc(sizeof(struct Bitmap), 1, "Gfx_AllocTexture");
+	bmpt->height = bmp->height;
+	bmpt->width = bmp->width;
+	bmpt->scan0 = Mem_Alloc(bmp->width * bmp->height, 4, "Gfx_AllocTexture");
+	Mem_Copy(bmpt->scan0, bmp->scan0, bmp->width * bmp->height * 4);
+
 	//CCTexture* tex = (CCTexture*)Mem_Alloc(2 + bmp->width * bmp->height, 4, "Texture");
 
 	//tex->width = bmp->width;
 	//tex->height = bmp->height;
 	//CopyTextureData(tex->pixels, bmp->width * BITMAPCOLOR_SIZE,
 	//	bmp, rowWidth * BITMAPCOLOR_SIZE);
-	//Rect2D r = { 0, 0, bmp->width, bmp->height };
-	//Window_DrawFramebuffer(r, &bmp);
-	return 0;
+	return bmpt;
 }
 
 void Gfx_BindTexture(GfxResourceID texId) {
-
+	gfx_texture = (struct Bitmap*)(texId);
 }
 
 void Gfx_DeleteTexture(GfxResourceID* texId) {
+	if (!texId || !*texId) return;
+	//Mem_Free(((struct Bitmap*)(*texId))->scan0);
+	//Mem_Free(((struct Bitmap*)(*texId)));
 }
 
 void Gfx_UpdateTexture(GfxResourceID texId, int x, int y, struct Bitmap* part, int rowWidth, cc_bool mipmaps) {
-	// TODO
+	struct Bitmap* dest = (struct Bitmap*)(texId);
+
+	for (int i = 0; i < part->height; ++i)
+		for (int j = 0; j < part->width; ++j)
+			dest->scan0[x + j + (y + i) * dest->width] = dest->scan0[j + i * part->width];
 }
 
 void Gfx_EnableMipmaps(void) {}
@@ -283,6 +270,68 @@ void Gfx_CalcPerspectiveMatrix(struct Matrix* matrix, float fov, float aspect, f
 /*########################################################################################################################*
 *---------------------------------------------------------Rendering-------------------------------------------------------*
 *#########################################################################################################################*/
+typedef struct DrawModel {
+	S3L_Unit vertices[10000];
+	S3L_Index triangles[10000];
+	S3L_Unit uv[10000];
+	S3L_Model3D model;
+	S3L_Mat4 matrix;
+	struct Bitmap* texture;
+};
+
+struct DrawModel models[1000];
+int models_c = 0;
+
+void drawPixel(S3L_PixelInfo* p) {
+	if (p->triangleID != previousTriangle)
+	{
+		const S3L_Index* uvIndices;
+		const S3L_Unit* uvs;
+
+		uvIndices = models[p->modelIndex].triangles;
+		uvs = models[p->modelIndex].uv;
+
+		S3L_getIndexedTriangleValues(p->triangleIndex, uvIndices, uvs, 2, &uv0, &uv1, &uv2);
+		previousTriangle = p->triangleID;
+
+
+		/*printf("Model: %d, Triangle: %d, %d:%d, %d:%d, %d:%d (%d:%d)\n", p->modelIndex, p->triangleIndex, 
+			uv0.x, uv0.y, uv1.x, uv1.y, uv2.x, uv2.y, 
+			models[p->modelIndex].texture->width,
+			models[p->modelIndex].texture->height);*/
+
+		//if (uv0.x > 4096)
+		//	printf("");
+	}
+
+	if (p->depth < S3L_F) return;
+
+	uint8_t r, g, b;
+	uint16_t c;
+
+	S3L_Unit uv[2];
+
+	S3L_correctBarycentricCoords(p->barycentric);
+
+	uv[0] = S3L_interpolateBarycentric(uv0.x, uv1.x, uv2.x, p->barycentric);
+	uv[1] = S3L_interpolateBarycentric(uv0.y, uv1.y, uv2.y, p->barycentric);
+
+
+	struct Bitmap* texture = models[p->modelIndex].texture;
+
+	int u = S3L_wrap(uv[0], texture->width);
+	int v = S3L_wrap(uv[1], texture->height);
+
+	uint32_t color = texture->scan0[u + v * texture->width];
+
+	//printf("x: %d, x: %d, u: %d, v: %d, c: 0x%08x\n", p->x, p->y, u, v, color);
+	if(color>>24 ==0xFF)
+		fb_bmp.scan0[p->x + p->y * fb_bmp.width] = 0xFF000000 | color; // 0xFF000000 | (p->triangleIndex * 2 << 16) | (p->triangleID * 2 << 8) | (p->modelIndex * 4);
+	//setPixel(p->x, p->y, c);
+
+	
+}
+
 typedef struct Vector3 { float x, y, z; } Vector3;
 typedef struct Vector2 { float x, y; } Vector2;
 typedef struct Vertex_ {
@@ -297,27 +346,21 @@ void Gfx_SetVertexFormat(VertexFormat fmt) {
 	//printf("Gfx_SetVertexFormat(%s)\n", fmt == VERTEX_FORMAT_TEXTURED ? "Textured" : "Colored");
 }
 
-typedef struct DrawModel {
-	S3L_Unit vertices[10000];
-	S3L_Index triangles[10000];
-	S3L_Model3D model;
-	S3L_Mat4 matrix;
-};
-
-struct DrawModel models[500];
-int models_c = 0;
-
 
 void DrawQuads(int startVertex, int verticesCount) {
 	if (gfx_format != VERTEX_FORMAT_TEXTURED) return;
 	for (int i = 0; i < verticesCount; ++i) {
 		char* ptr = (char*)gfx_vertices + (i + startVertex) * gfx_stride;
-		//if (gfx_format == VERTEX_FORMAT_TEXTURED) {
-		struct VertexTextured* pos = (Vector3*)ptr;
+		struct VertexTextured* pos = (struct VertexTextured*)ptr;
 
 		models[models_c].vertices[i * 3 + 0] = (pos->x * S3L_F);
 		models[models_c].vertices[i * 3 + 1] = (pos->y * S3L_F);
 		models[models_c].vertices[i * 3 + 2] = (pos->z * S3L_F);
+
+		if (gfx_format == VERTEX_FORMAT_TEXTURED) {
+			models[models_c].uv[i * 2 + 0] = pos->U * gfx_texture->width;
+			models[models_c].uv[i * 2 + 1] = pos->V * gfx_texture->height;
+		}
 
 		//printf("i: %d, x: %1.3f, y: %1.3f, z: %1.3f, U: %1.3f, V: %1.3f, col: 0x%08x\n",
 		//	i, pos->x, pos->y, pos->z, pos->U, pos->V, pos->Col);
@@ -362,6 +405,8 @@ void DrawQuads(int startVertex, int verticesCount) {
 	models[models_c].matrix[3][3] = m.row4.w * (float)S3L_F;
 
 	models[models_c].model.customTransformMatrix = models[models_c].matrix;
+	models[models_c].model.config.backfaceCulling = 0;
+	models[models_c].texture = gfx_texture;
 
 	models_c++;
 }
@@ -400,7 +445,7 @@ void Gfx_BeginFrame(void) {
 void Gfx_EndFrame(void) {
 	//printf("Gfx_EndFrame\n");
 
-	S3L_Model3D dmodels[500];
+	S3L_Model3D dmodels[1000];
 	for (int i = 0; i < models_c; ++i)
 		dmodels[i] = models[i].model;
 
@@ -411,6 +456,12 @@ void Gfx_EndFrame(void) {
 
 	S3L_newFrame();
 	S3L_drawScene(scene);
+
+	/*gfx_texture = models[1].texture;
+
+	for (int i = 0; i < min(fb_bmp.height, gfx_texture->height); ++i)
+		for (int j = 0; j < min(fb_bmp.width, gfx_texture->width); ++j)
+			fb_bmp.scan0[j + i * fb_bmp.width] = gfx_texture->scan0[j + i * gfx_texture->width];*/
 
 	Rect2D r = { 0, 0, fb_width, fb_height };
 	Window_DrawFramebuffer(r, &fb_bmp);
@@ -425,6 +476,8 @@ void Gfx_OnWindowResize(void) {
 
 	fb_width = Game.Width;
 	fb_height = Game.Height;
+	//S3L_resolutionX = fb_width;
+	//S3L_resolutionY = fb_height;
 
 	Window_AllocFramebuffer(&fb_bmp, Game.Width, Game.Height);
 	//colorBuffer = fb_bmp.scan0;
