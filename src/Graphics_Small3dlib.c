@@ -400,9 +400,9 @@ void DrawQuads(int startVertex, int verticesCount) {
 
 	S3L_model3DInit(
 		vertices,
-		verticesCount * 3,
+		verticesCount,
 		triangles,
-		verticesCount * 6,
+		verticesCount / 2,
 		&model);
 
 	struct Matrix m = _mvp;
@@ -433,6 +433,7 @@ void DrawQuads(int startVertex, int verticesCount) {
 	S3L_sceneInit(&model, 1, &scene);
 	if (!depthTest) 
 		scene.camera.focalLength = 0;
+	previousTriangle = -1;
 	S3L_drawScene(scene);
 }
 
