@@ -140,6 +140,7 @@ typedef cc_uint8  cc_bool;
 #define CC_GFX_BACKEND_D3D9      4
 #define CC_GFX_BACKEND_D3D11     5
 #define CC_GFX_BACKEND_VULKAN    6
+#define CC_GFX_BACKEND_SMALL3DLIB 7
 
 #define CC_SSL_BACKEND_NONE     1
 #define CC_SSL_BACKEND_BEARSSL  2

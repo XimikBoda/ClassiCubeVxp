@@ -801,16 +801,18 @@ static inline void S3L_rotate2DPoint(S3L_Unit *x, S3L_Unit *y, S3L_Unit angle);
 
 #if S3L_Z_BUFFER == 1
   #define S3L_MAX_DEPTH 2147483647
-  S3L_Unit S3L_zBuffer[S3L_MAX_PIXELS];
+  S3L_Unit S3L_zBuffer[S3L_MAX_Z_BUFFER_SIZE];
   #define S3L_zBufferFormat(depth) (depth)
 #elif S3L_Z_BUFFER == 2
   #define S3L_MAX_DEPTH 255
-  uint8_t S3L_zBuffer[S3L_MAX_PIXELS];
+  uint8_t S3L_zBuffer[S3L_MAX_Z_BUFFER_SIZE];
   #define S3L_zBufferFormat(depth)\
     S3L_min(255,(depth) >> S3L_REDUCED_Z_BUFFER_GRANULARITY)
 #endif
 
 #if S3L_Z_BUFFER
+  int S3L_depthTest = 1;
+
 static inline int8_t S3L_zTest(
   S3L_ScreenCoord x,
   S3L_ScreenCoord y,
@@ -2400,7 +2402,7 @@ void S3L_drawTriangle(
 
         zBufferIndex++;
 
-        if (!S3L_zTest(p.x,p.y,p.depth))
+        if (S3L_depthTest&&!S3L_zTest(p.x,p.y,p.depth))
           testsPassed = 0;        
 #endif
 
@@ -2862,7 +2864,7 @@ void S3L_drawScene(S3L_Scene scene)
            matFinal[i][j] = (*m)[i][j];
     }
 
-    S3L_mat4Xmat4(matFinal,matCamera);
+    //S3L_mat4Xmat4(matFinal,matCamera);
 
     S3L_Index triangleCount = scene.models[modelIndex].triangleCount;
 

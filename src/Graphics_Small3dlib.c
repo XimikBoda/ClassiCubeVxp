@@ -15,7 +15,10 @@ static struct Bitmap fb_bmp;
 #define S3L_SORT 0
 #define S3L_STENCIL_BUFFER 0
 #define S3L_Z_BUFFER 1
-//#define S3L_USE_WIDER_TYPES 1
+#define S3L_USE_WIDER_TYPES 0
+#define S3L_SIN_METHOD 1
+
+#define S3L_MAX_Z_BUFFER_SIZE (2000*2000)
 
 
 #define S3L_RESOLUTION_X (fb_width)
@@ -26,9 +29,18 @@ static struct Bitmap fb_bmp;
 
 #include "../third_party/small3dlib/small3dlib.h"
 
+const int ortho_render_multiplier = 128;
+
 static S3L_Scene scene;
 
+static BitmapCol* colorBuffer;
+static BitmapCol clearColor;
+
 static void* gfx_vertices;
+static cc_bool depthTest = true;
+static cc_bool depthWrite = true;
+static cc_bool faceCulling = false;
+static GfxResourceID white_square;
 
 uint32_t previousTriangle = -1;
 S3L_Vec4 uv0, uv1, uv2;
@@ -36,9 +48,17 @@ S3L_Vec4 uv0, uv1, uv2;
 
 void Gfx_RestoreState(void) {
 	InitDefaultResources();
+
+	// 1x1 dummy white texture
+	struct Bitmap bmp;
+	BitmapCol pixels[1] = { BITMAPCOLOR_WHITE };
+	Bitmap_Init(bmp, 1, 1, pixels);
+	white_square = Gfx_CreateTexture(&bmp, 0, false);
 }
 
 void Gfx_FreeState(void) {
+	FreeDefaultResources();
+	Gfx_DeleteTexture(&white_square);
 }
 
 void Gfx_Create(void) {
@@ -47,13 +67,6 @@ void Gfx_Create(void) {
 	Gfx.Created = true;
 
 	Gfx_RestoreState();
-
-	//SetupContexts(Window_Main.Width, Window_Main.Height, 63, 0, 127);
-	//SetDispMask(1);
-
-	//InitGeom();
-	//gte_SetGeomOffset(Window_Main.Width / 2, Window_Main.Height / 2);
-	//gte_SetGeomScreen(Window_Main.Height / 2);
 }
 
 void Gfx_Free(void) {
@@ -63,41 +76,53 @@ void Gfx_Free(void) {
 /*########################################################################################################################*
 *---------------------------------------------------------Textures--------------------------------------------------------*
 *#########################################################################################################################*/
-struct Bitmap* gfx_texture = 0;
+typedef struct CCTexture {
+	int width, height;
+	BitmapCol pixels[];
+} CCTexture;
 
-GfxResourceID Gfx_AllocTexture(struct Bitmap* bmp, int rowWidth, cc_uint8 flags, cc_bool mipmaps) {
-	struct Bitmap* bmpt = (struct Bitmap*)Mem_Alloc(sizeof(struct Bitmap), 1, "Gfx_AllocTexture");
-	bmpt->height = bmp->height;
-	bmpt->width = bmp->width;
-	bmpt->scan0 = Mem_Alloc(bmp->width * bmp->height, 4, "Gfx_AllocTexture");
-	Mem_Copy(bmpt->scan0, bmp->scan0, bmp->width * bmp->height * 4);
-
-	//CCTexture* tex = (CCTexture*)Mem_Alloc(2 + bmp->width * bmp->height, 4, "Texture");
-
-	//tex->width = bmp->width;
-	//tex->height = bmp->height;
-	//CopyTextureData(tex->pixels, bmp->width * BITMAPCOLOR_SIZE,
-	//	bmp, rowWidth * BITMAPCOLOR_SIZE);
-	return bmpt;
-}
+static CCTexture* curTexture;
+static BitmapCol* curTexPixels;
+static int curTexWidth, curTexHeight;
+static int texWidthMask, texHeightMask;
 
 void Gfx_BindTexture(GfxResourceID texId) {
-	gfx_texture = (struct Bitmap*)(texId);
+	if (!texId) texId = white_square;
+	CCTexture* tex = texId;
+
+	curTexture = tex;
+	curTexPixels = tex->pixels;
+	curTexWidth = tex->width;
+	curTexHeight = tex->height;
+
+	texWidthMask = (1 << Math_ilog2(tex->width)) - 1;
+	texHeightMask = (1 << Math_ilog2(tex->height)) - 1;
 }
 
 void Gfx_DeleteTexture(GfxResourceID* texId) {
-	if (!texId || !*texId) return;
-	//Mem_Free(((struct Bitmap*)(*texId))->scan0);
-	//Mem_Free(((struct Bitmap*)(*texId)));
+	GfxResourceID data = *texId;
+	if (data) Mem_Free(data);
+	*texId = NULL;
+}
+
+GfxResourceID Gfx_AllocTexture(struct Bitmap* bmp, int rowWidth, cc_uint8 flags, cc_bool mipmaps) {
+	CCTexture* tex = (CCTexture*)Mem_Alloc(2 + bmp->width * bmp->height, 4, "Texture");
+
+	tex->width = bmp->width;
+	tex->height = bmp->height;
+	CopyTextureData(tex->pixels, bmp->width * BITMAPCOLOR_SIZE,
+		bmp, rowWidth * BITMAPCOLOR_SIZE);
+	return tex;
 }
 
 void Gfx_UpdateTexture(GfxResourceID texId, int x, int y, struct Bitmap* part, int rowWidth, cc_bool mipmaps) {
-	struct Bitmap* dest = (struct Bitmap*)(texId);
+	CCTexture* tex = (CCTexture*)texId;
+	BitmapCol* dst = (tex->pixels + x) + y * tex->width;
 
-	for (int i = 0; i < part->height; ++i)
-		for (int j = 0; j < part->width; ++j)
-			dest->scan0[x + j + (y + i) * dest->width] = dest->scan0[j + i * part->width];
+	CopyTextureData(dst, tex->width * BITMAPCOLOR_SIZE,
+		part, rowWidth * BITMAPCOLOR_SIZE);
 }
+
 
 void Gfx_EnableMipmaps(void) {}
 void Gfx_DisableMipmaps(void) {}
@@ -113,7 +138,7 @@ void Gfx_SetFogEnd(float value) {}
 void Gfx_SetFogMode(FogFunc func) {}
 
 void Gfx_SetFaceCulling(cc_bool enabled) {
-	//cullingEnabled = enabled;
+	faceCulling = enabled;
 }
 
 static void SetAlphaTest(cc_bool enabled) {
@@ -124,23 +149,37 @@ static void SetAlphaBlend(cc_bool enabled) {
 
 void Gfx_SetAlphaArgBlend(cc_bool enabled) {}
 
+static void ClearColorBuffer(void) {
+	int i, x, y, size = fb_width * fb_height;
+
+	for (i = 0; i < size; i++) colorBuffer[i] = clearColor;
+}
+
+static void ClearDepthBuffer(void) {
+	S3L_zBufferClear();
+}
+
 void Gfx_ClearBuffers(GfxBuffers buffers) {
+	if (buffers & GFX_BUFFER_COLOR) ClearColorBuffer();
+	if (buffers & GFX_BUFFER_DEPTH) ClearDepthBuffer();
 }
 
 void Gfx_ClearColor(PackedCol color) {
-	int r = PackedCol_R(color);
-	int g = PackedCol_G(color);
-	int b = PackedCol_B(color);
+	int R = PackedCol_R(color);
+	int G = PackedCol_G(color);
+	int B = PackedCol_B(color);
+	int A = PackedCol_A(color);
 
-	//setRGB0(&buffers[0].draw_env, r, g, b);
-	//setRGB0(&buffers[1].draw_env, r, g, b);
+	clearColor = BitmapCol_Make(R, G, B, A);
 }
 
 void Gfx_SetDepthTest(cc_bool enabled) {
+	depthTest = enabled;
+	S3L_depthTest = enabled;
 }
 
 void Gfx_SetDepthWrite(cc_bool enabled) {
-	// TODO
+	depthWrite = enabled;
 }
 
 static void SetColorWrite(cc_bool r, cc_bool g, cc_bool b, cc_bool a) {
@@ -208,6 +247,7 @@ void Gfx_DeleteDynamicVb(GfxResourceID* vb) { Gfx_DeleteVb(vb); }
 /*########################################################################################################################*
 *---------------------------------------------------------Matrices--------------------------------------------------------*
 *#########################################################################################################################*/
+static float texOffsetX, texOffsetY;
 static struct Matrix _view, _proj, _mvp;
 
 void Gfx_LoadMatrix(MatrixType type, const struct Matrix* matrix) {
@@ -226,11 +266,13 @@ void Gfx_LoadMVP(const struct Matrix* view, const struct Matrix* proj, struct Ma
 }
 
 void Gfx_EnableTextureOffset(float x, float y) {
-	// TODO
+	texOffsetX = x;
+	texOffsetY = y;
 }
 
 void Gfx_DisableTextureOffset(void) {
-	// TODO
+	texOffsetX = 0;
+	texOffsetY = 0;
 }
 
 void Gfx_CalcOrthoMatrix(struct Matrix* matrix, float width, float height, float zNear, float zFar) {
@@ -239,8 +281,10 @@ void Gfx_CalcOrthoMatrix(struct Matrix* matrix, float width, float height, float
 	/* NOTE: This calculation is shared with Direct3D 11 backend */
 	*matrix = Matrix_Identity;
 
-	matrix->row1.x = 2.0f / width;
-	matrix->row2.y = -2.0f / height;
+	zFar = 10; //TODO
+
+	matrix->row1.x = 2.0f * (float)ortho_render_multiplier / width;
+	matrix->row2.y = -2.0f * (float)ortho_render_multiplier / height;
 	matrix->row3.z = 1.0f / (zNear - zFar);
 
 	matrix->row4.x = -1.0f;
@@ -270,17 +314,11 @@ void Gfx_CalcPerspectiveMatrix(struct Matrix* matrix, float fov, float aspect, f
 /*########################################################################################################################*
 *---------------------------------------------------------Rendering-------------------------------------------------------*
 *#########################################################################################################################*/
-typedef struct DrawModel {
-	S3L_Unit vertices[10000];
-	S3L_Index triangles[10000];
-	S3L_Unit uv[10000];
-	S3L_Model3D model;
-	S3L_Mat4 matrix;
-	struct Bitmap* texture;
-};
-
-struct DrawModel models[1000];
-int models_c = 0;
+static S3L_Unit vertices[30000];
+static S3L_Index triangles[60000];
+static S3L_Unit uv[20000];
+static S3L_Model3D model;
+static S3L_Mat4 matrix;
 
 void drawPixel(S3L_PixelInfo* p) {
 	if (p->triangleID != previousTriangle)
@@ -288,26 +326,12 @@ void drawPixel(S3L_PixelInfo* p) {
 		const S3L_Index* uvIndices;
 		const S3L_Unit* uvs;
 
-		uvIndices = models[p->modelIndex].triangles;
-		uvs = models[p->modelIndex].uv;
+		uvIndices = triangles;
+		uvs = uv;
 
 		S3L_getIndexedTriangleValues(p->triangleIndex, uvIndices, uvs, 2, &uv0, &uv1, &uv2);
 		previousTriangle = p->triangleID;
-
-
-		/*printf("Model: %d, Triangle: %d, %d:%d, %d:%d, %d:%d (%d:%d)\n", p->modelIndex, p->triangleIndex, 
-			uv0.x, uv0.y, uv1.x, uv1.y, uv2.x, uv2.y, 
-			models[p->modelIndex].texture->width,
-			models[p->modelIndex].texture->height);*/
-
-		//if (uv0.x > 4096)
-		//	printf("");
 	}
-
-	if (p->depth < S3L_F) return;
-
-	uint8_t r, g, b;
-	uint16_t c;
 
 	S3L_Unit uv[2];
 
@@ -317,19 +341,20 @@ void drawPixel(S3L_PixelInfo* p) {
 	uv[1] = S3L_interpolateBarycentric(uv0.y, uv1.y, uv2.y, p->barycentric);
 
 
-	struct Bitmap* texture = models[p->modelIndex].texture;
+	int u = S3L_wrap(uv[0], curTexWidth);
+	int v = S3L_wrap(uv[1], curTexHeight);
 
-	int u = S3L_wrap(uv[0], texture->width);
-	int v = S3L_wrap(uv[1], texture->height);
+	uint32_t color = curTexPixels[u + v * curTexWidth];
 
-	uint32_t color = texture->scan0[u + v * texture->width];
+	if (color >> 24 != 0x00)
+		fb_bmp.scan0[p->x + p->y * fb_bmp.width] = 0xFF000000 | color;
+	else
+		S3L_zBufferWrite(p->x, p->y, S3L_MAX_DEPTH);
+}
 
-	//printf("x: %d, x: %d, u: %d, v: %d, c: 0x%08x\n", p->x, p->y, u, v, color);
-	if(color>>24 ==0xFF)
-		fb_bmp.scan0[p->x + p->y * fb_bmp.width] = 0xFF000000 | color; // 0xFF000000 | (p->triangleIndex * 2 << 16) | (p->triangleID * 2 << 8) | (p->modelIndex * 4);
-	//setPixel(p->x, p->y, c);
-
-	
+void Gfx_SetVertexFormat(VertexFormat fmt) {
+	gfx_format = fmt;
+	gfx_stride = strideSizes[fmt];
 }
 
 typedef struct Vector3 { float x, y, z; } Vector3;
@@ -340,75 +365,75 @@ typedef struct Vertex_ {
 	PackedCol c;
 } Vertex;
 
-void Gfx_SetVertexFormat(VertexFormat fmt) {
-	gfx_format = fmt;
-	gfx_stride = strideSizes[fmt];
-	//printf("Gfx_SetVertexFormat(%s)\n", fmt == VERTEX_FORMAT_TEXTURED ? "Textured" : "Colored");
-}
-
-
 void DrawQuads(int startVertex, int verticesCount) {
-	if (gfx_format != VERTEX_FORMAT_TEXTURED) return;
+	if (gfx_format != VERTEX_FORMAT_TEXTURED)
+		return;
+	if (verticesCount >= 10000)
+		return;
 	for (int i = 0; i < verticesCount; ++i) {
 		char* ptr = (char*)gfx_vertices + (i + startVertex) * gfx_stride;
 		struct VertexTextured* pos = (struct VertexTextured*)ptr;
 
-		models[models_c].vertices[i * 3 + 0] = (pos->x * S3L_F);
-		models[models_c].vertices[i * 3 + 1] = (pos->y * S3L_F);
-		models[models_c].vertices[i * 3 + 2] = (pos->z * S3L_F);
+		vertices[i * 3 + 0] = pos->x * S3L_F;
+		vertices[i * 3 + 1] = pos->y * S3L_F;
+		vertices[i * 3 + 2] = pos->z * S3L_F;
+
 
 		if (gfx_format == VERTEX_FORMAT_TEXTURED) {
-			models[models_c].uv[i * 2 + 0] = pos->U * gfx_texture->width;
-			models[models_c].uv[i * 2 + 1] = pos->V * gfx_texture->height;
+			uv[i * 2 + 0] = pos->U * curTexWidth;
+			uv[i * 2 + 1] = pos->V * curTexHeight;
 		}
-
-		//printf("i: %d, x: %1.3f, y: %1.3f, z: %1.3f, U: %1.3f, V: %1.3f, col: 0x%08x\n",
-		//	i, pos->x, pos->y, pos->z, pos->U, pos->V, pos->Col);
 	}
 
+	if (!depthTest)
+		for (int i = 0; i < verticesCount * 3; ++i)
+			vertices[i] /= ortho_render_multiplier;
+
 	for (int i = 0; i < verticesCount / 4; ++i) {
-		models[models_c].triangles[i * 6 + 0] = i * 4 + 0;
-		models[models_c].triangles[i * 6 + 1] = i * 4 + 1;
-		models[models_c].triangles[i * 6 + 2] = i * 4 + 2;
-		models[models_c].triangles[i * 6 + 3] = i * 4 + 2;
-		models[models_c].triangles[i * 6 + 4] = i * 4 + 3;
-		models[models_c].triangles[i * 6 + 5] = i * 4 + 0;
+		triangles[i * 6 + 0] = i * 4 + 0;
+		triangles[i * 6 + 1] = i * 4 + 1;
+		triangles[i * 6 + 2] = i * 4 + 2;
+		triangles[i * 6 + 3] = i * 4 + 2;
+		triangles[i * 6 + 4] = i * 4 + 3;
+		triangles[i * 6 + 5] = i * 4 + 0;
 	}
 
 	S3L_model3DInit(
-		models[models_c].vertices,
+		vertices,
 		verticesCount * 3,
-		models[models_c].triangles,
+		triangles,
 		verticesCount * 6,
-		&models[models_c].model);
+		&model);
 
 	struct Matrix m = _mvp;
 
-	models[models_c].matrix[0][0] = m.row1.x * (float)S3L_F;
-	models[models_c].matrix[1][0] = m.row1.y * (float)S3L_F;
-	models[models_c].matrix[2][0] = m.row1.z * (float)S3L_F;
-	models[models_c].matrix[3][0] = m.row1.w * (float)S3L_F;
+	matrix[0][0] = m.row1.x * S3L_F;
+	matrix[1][0] = m.row1.y * S3L_F;
+	matrix[2][0] = m.row1.z * S3L_F;
+	matrix[3][0] = m.row1.w * S3L_F;
 
-	models[models_c].matrix[0][1] = m.row2.x * (float)S3L_F;
-	models[models_c].matrix[1][1] = m.row2.y * (float)S3L_F;
-	models[models_c].matrix[2][1] = m.row2.z * (float)S3L_F;
-	models[models_c].matrix[3][1] = m.row2.w * (float)S3L_F;
+	matrix[0][1] = m.row2.x * S3L_F;
+	matrix[1][1] = m.row2.y * S3L_F;
+	matrix[2][1] = m.row2.z * S3L_F;
+	matrix[3][1] = m.row2.w * S3L_F;
 
-	models[models_c].matrix[0][2] = m.row3.x * (float)S3L_F;
-	models[models_c].matrix[1][2] = m.row3.y * (float)S3L_F;
-	models[models_c].matrix[2][2] = m.row3.z * (float)S3L_F;
-	models[models_c].matrix[3][2] = m.row3.w * (float)S3L_F;
+	matrix[0][2] = m.row3.x * S3L_F;
+	matrix[1][2] = m.row3.y * S3L_F;
+	matrix[2][2] = m.row3.z * S3L_F;
+	matrix[3][2] = m.row3.w * S3L_F;
 
-	models[models_c].matrix[0][3] = m.row4.x * (float)S3L_F;
-	models[models_c].matrix[1][3] = m.row4.y * (float)S3L_F;
-	models[models_c].matrix[2][3] = m.row4.z * (float)S3L_F;
-	models[models_c].matrix[3][3] = m.row4.w * (float)S3L_F;
+	matrix[0][3] = m.row4.x * S3L_F;
+	matrix[1][3] = m.row4.y * S3L_F;
+	matrix[2][3] = m.row4.z * S3L_F;
+	matrix[3][3] = m.row4.w * S3L_F;
 
-	models[models_c].model.customTransformMatrix = models[models_c].matrix;
-	models[models_c].model.config.backfaceCulling = 0;
-	models[models_c].texture = gfx_texture;
+	model.customTransformMatrix = matrix;
+	model.config.backfaceCulling = 0;// faceCulling ? 2 : 0;
 
-	models_c++;
+	S3L_sceneInit(&model, 1, &scene);
+	if (!depthTest) 
+		scene.camera.focalLength = 0;
+	S3L_drawScene(scene);
 }
 
 void Gfx_DrawVb_Lines(int verticesCount) {} /* TODO */
@@ -437,32 +462,9 @@ cc_result Gfx_TakeScreenshot(struct Stream* output) {
 cc_bool Gfx_WarnIfNecessary(void) { return false; }
 cc_bool Gfx_GetUIOptions(struct MenuOptionsScreen* s) { return false; }
 
-void Gfx_BeginFrame(void) {
-	//printf("Gfx_BeginFrame\n");
-	models_c = 0;
-}
+void Gfx_BeginFrame(void) {}
 
 void Gfx_EndFrame(void) {
-	//printf("Gfx_EndFrame\n");
-
-	S3L_Model3D dmodels[1000];
-	for (int i = 0; i < models_c; ++i)
-		dmodels[i] = models[i].model;
-
-	S3L_sceneInit(dmodels, models_c, &scene);
-
-	for (int i = 0; i < fb_width * fb_height; ++i)
-		fb_bmp.scan0[i] = 0xFF000000;
-
-	S3L_newFrame();
-	S3L_drawScene(scene);
-
-	/*gfx_texture = models[1].texture;
-
-	for (int i = 0; i < min(fb_bmp.height, gfx_texture->height); ++i)
-		for (int j = 0; j < min(fb_bmp.width, gfx_texture->width); ++j)
-			fb_bmp.scan0[j + i * fb_bmp.width] = gfx_texture->scan0[j + i * gfx_texture->width];*/
-
 	Rect2D r = { 0, 0, fb_width, fb_height };
 	Window_DrawFramebuffer(r, &fb_bmp);
 }
@@ -476,12 +478,10 @@ void Gfx_OnWindowResize(void) {
 
 	fb_width = Game.Width;
 	fb_height = Game.Height;
-	//S3L_resolutionX = fb_width;
-	//S3L_resolutionY = fb_height;
+	printf("%d:%d\n", fb_width, fb_height);
 
 	Window_AllocFramebuffer(&fb_bmp, Game.Width, Game.Height);
-	//colorBuffer = fb_bmp.scan0;
-	//cb_stride = fb_bmp.width;
+	colorBuffer = fb_bmp.scan0;
 
 	Gfx_SetViewport(0, 0, Game.Width, Game.Height);
 	Gfx_SetScissor(0, 0, Game.Width, Game.Height);
