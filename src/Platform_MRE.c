@@ -116,6 +116,10 @@ void Platform_EncodePath(cc_filepath* dst, const cc_string* path) {
 
 	String_EncodeUtf8(tempn, path); //TODO
 
+	for(; *tempn != '\0'; tempn++)
+		if (*tempn == '/')
+			*tempn = '\\';
+
 	vm_ascii_to_ucs2(wstr, FILENAME_SIZE, temp);
 }
 
@@ -398,6 +402,7 @@ void MRE_handle_sysevt(VMINT message, VMINT param) {
 	switch (message) {
 	case VM_MSG_CREATE:
 	case VM_MSG_ACTIVE:
+		vm_kbd_set_mode(VM_KEYPAD_2KEY_NUMBER);
 		break;
 	case VM_MSG_PAINT:
 		break;
