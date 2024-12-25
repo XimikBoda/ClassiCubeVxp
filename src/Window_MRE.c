@@ -9,8 +9,8 @@
 #include <vmio.h>
 #include <vmgraph.h>
 
-VMINT layer_hdl[1];
-VMUINT8* layer_buf = 0;
+VMINT layer_hdl[2] = {-1, -1};
+VMUINT8* layer_buf[2] = {0, 0};
 
 VMINT screen_w = 0;
 VMINT screen_h = 0;
@@ -27,7 +27,10 @@ void Window_Init(void) {
 	screen_h = vm_graphic_get_screen_height();
 
 	layer_hdl[0] = vm_graphic_create_layer(0, 0, screen_w, screen_h, -1);
-	layer_buf = vm_graphic_get_layer_buffer(layer_hdl[0]);
+	layer_buf[0] = vm_graphic_get_layer_buffer(layer_hdl[0]);
+
+	layer_hdl[1] = vm_graphic_create_layer(0, 0, screen_w, screen_h, -1);
+	layer_buf[1] = vm_graphic_get_layer_buffer(layer_hdl[1]); //To get a buffer without spending memory
 
 	DisplayInfo.Width = screen_w;
 	DisplayInfo.Height = screen_h;
@@ -84,26 +87,32 @@ void Window_LockLandscapeOrientation(cc_bool lock) {}
 *------------------------------------------------------Framebuffer--------------------------------------------------------*
 *#########################################################################################################################*/
 void Window_AllocFramebuffer(struct Bitmap* bmp, int width, int height) {
+#ifndef BITMAP_16BPP
 	bmp->scan0 = (BitmapCol*)Mem_Alloc(width * height, BITMAPCOLOR_SIZE, "window pixels");
+#else
+	bmp->scan0 = (BitmapCol*)layer_buf[1];
+#endif // !BITMAP_16BPP
 	bmp->width = width;
 	bmp->height = height;
 }
 
 void Window_DrawFramebuffer(Rect2D r, struct Bitmap* bmp) {
-	cc_uint32* buf = bmp->scan0;
-	cc_uint16* lbuf = layer_buf;
-	int max_i = screen_w * screen_h;
-	for (int i = 0; i < max_i; i++) {
-		cc_uint8* rgb = buf++;
-		*lbuf++ = VM_COLOR_888_TO_565(rgb[2], rgb[1], rgb[0]);
+	int frame_buf_size = screen_w * screen_h;
+	cc_uint16* lbuf = layer_buf[0];
+	if (bmp) {
+		BitmapCol* sbuf = bmp->scan0;
+		for (int i = 0; i < frame_buf_size; i++) {
+			*lbuf++ = VM_COLOR_888_TO_565(BitmapCol_R(*sbuf), BitmapCol_G(*sbuf), BitmapCol_B(*sbuf));				
+			sbuf++;
+		}
 	}
-		//lbuf[i] = VM_COLOR_INT_TO_565(buf[i]);
 	vm_graphic_flush_layer(layer_hdl, 1);
-	//TODO
 }
 
 void Window_FreeFramebuffer(struct Bitmap* bmp) {
+#ifndef BITMAP_16BPP
 	Mem_Free(bmp->scan0);
+#endif // !BITMAP_16BPP
 }
 
 
@@ -157,6 +166,13 @@ static int MapMreKeys(VMINT keycode) {
 }
 
 void MRE_key_handler(VMINT event, VMINT keycode) {
+#ifdef WIN32 //Fix for MoDis 
+	if (keycode >= VM_KEY_NUM1 && keycode <= VM_KEY_NUM3)
+		keycode += 6;
+	else if (keycode >= VM_KEY_NUM7 && keycode <= VM_KEY_NUM9)
+		keycode -= 6;
+#endif
+
 	cc_bool pressed = false;
 	switch (event) {
 	case VM_KEY_EVENT_DOWN:
