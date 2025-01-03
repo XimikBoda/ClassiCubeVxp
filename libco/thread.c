@@ -27,12 +27,12 @@ void thread_next(){
 	}
 }
 
-void thread_create(unsigned int size, void (*entrypoint)(void)){
+int thread_create(unsigned int size, void (*entrypoint)(void)){
 	if(threads + 1 >= MAX_THEADS)
 		return;
 
 	thread[threads] = co_create(size, entrypoint);
-	threads++;
+	return threads++;
 }
 
 void thread_remove(int id){

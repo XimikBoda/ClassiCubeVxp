@@ -8,6 +8,7 @@
 #include <vmchset.h>
 #include <vmstdlib.h>
 #include <vmtimer.h>
+#include <vmsock.h>
 #include <thread.h>
 
 const cc_result ReturnCode_FileShareViolation = 1000000000; /* TODO: not used apparently */
@@ -17,7 +18,7 @@ const cc_result ReturnCode_SocketInProgess = -1;
 const cc_result ReturnCode_SocketWouldBlock = -1;
 const cc_result ReturnCode_SocketDropped = -1;
 
-const char* Platform_AppNameSuffix = "VXP";
+const char* Platform_AppNameSuffix = "";
 cc_bool Platform_ReadonlyFilesystem = false;
 cc_bool Platform_SingleProcess = true;
 
@@ -111,12 +112,12 @@ cc_uint64 Stopwatch_ElapsedMicroseconds(cc_uint64 beg, cc_uint64 end) {
 *#########################################################################################################################*/
 void Platform_EncodePath(cc_filepath* dst, const cc_string* path) {
 	VMWCHAR* wstr = dst->buffer;
-	char temp[FILENAME_SIZE*2] = "e:\\ClassiCube\\";
-	char *tempn = temp + strlen(temp);
+	char temp[FILENAME_SIZE * 2] = "e:\\ClassiCube\\";
+	char* tempn = temp + strlen(temp);
 
 	String_EncodeUtf8(tempn, path); //TODO
 
-	for(; *tempn != '\0'; tempn++)
+	for (; *tempn != '\0'; tempn++)
 		if (*tempn == '/')
 			*tempn = '\\';
 
@@ -143,7 +144,7 @@ cc_result Directory_Enum(const cc_string* dirPath, void* obj, Directory_EnumCall
 	vm_fileinfo_ext dir;
 	char src[FILENAME_SIZE];
 	int len, res, is_dir;
-	VMWCHAR find_req[5] = {'\\', '*', '.', '*', '\0'};
+	VMWCHAR find_req[5] = { '\\', '*', '.', '*', '\0' };
 
 	Platform_EncodePath(&str, dirPath);
 	vm_wstrcat((VMWSTR)str.buffer, find_req);
@@ -177,7 +178,7 @@ cc_result Directory_Enum(const cc_string* dirPath, void* obj, Directory_EnumCall
 	} while (vm_find_next_ext(find_h, &dir) == 0);
 
 	vm_find_close_ext(find_h);
-	
+
 	return 0;
 }
 
@@ -193,7 +194,7 @@ cc_result File_Create(cc_file* file, const cc_filepath* path) {
 	return File_Do(file, (VMWSTR)path->buffer, MODE_CREATE_ALWAYS_WRITE);
 }
 cc_result File_OpenOrCreate(cc_file* file, const cc_filepath* path) {
-	if(File_Exists(path))
+	if (File_Exists(path))
 		return File_Do(file, (VMWSTR)path->buffer, MODE_CREATE_ALWAYS_WRITE);
 	else
 		return File_Do(file, (VMWSTR)path->buffer, MODE_WRITE);
@@ -236,7 +237,7 @@ cc_result File_Length(cc_file file, cc_uint32* len) {
 *#########################################################################################################################*/
 void Thread_MRE_timer(int timer_id) {
 	vm_delete_timer(timer_id);
-	
+
 	thread_next();
 }
 
@@ -247,7 +248,7 @@ void Thread_Sleep(cc_uint32 milliseconds) {
 }
 
 void Thread_Run(void** handle, Thread_StartFunc func, int stackSize, const char* name) {
-	*handle = NULL;
+	*handle = thread_create(stackSize, func);
 }
 
 void Thread_Detach(void* handle) {
@@ -270,16 +271,25 @@ void Mutex_Unlock(void* handle) {
 }
 
 void* Waitable_Create(const char* name) {
-	return NULL;
+	char *wa = Mem_Alloc(1, 1, "Waitable_Create");
+	*wa = 0;
+	return wa;
 }
 
 void Waitable_Free(void* handle) {
+	if (handle)
+		Mem_Free(handle);
 }
 
 void Waitable_Signal(void* handle) {
+	*(char*)handle = 1;
 }
 
 void Waitable_Wait(void* handle) {
+	char* wa = handle;
+	*wa = 0;
+	while(!*wa)
+		thread_next();
 }
 
 void Waitable_WaitFor(void* handle, cc_uint32 milliseconds) {
@@ -330,7 +340,7 @@ cc_result Process_StartGame2(const cc_string* args, int numArgs) {
 	return SetGameArgs(args, numArgs);
 }
 
-void Process_Exit(cc_result code) { 
+void Process_Exit(cc_result code) {
 	vm_exit_app();
 	thread_next();
 }
@@ -393,7 +403,7 @@ void MRE_handle_sysevt(VMINT message, VMINT param) {
 		break;
 	case VM_MSG_PAINT:
 		break;
-	case VM_MSG_HIDE:	
+	case VM_MSG_HIDE:
 		break;
 	case VM_MSG_QUIT:
 		break;
@@ -407,9 +417,9 @@ void MRE_handle_sysevt(VMINT message, VMINT param) {
 	case VM_MSG_PAINT:
 		break;
 	case VM_MSG_INACTIVE:
-		break;	
+		break;
 	case VM_MSG_QUIT:
-		break;	
+		break;
 	}
 #endif
 }
