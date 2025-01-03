@@ -61,7 +61,7 @@ set(MRE_SDK "$ENV{MRE_SDK}")
 set(OBJECT_GEN_FLAGS "-fpic -march=armv5te -fvisibility=hidden -mlittle-endian -fdata-sections -ffunction-sections -mthumb -D__MRE_COMPILER_GCC__")
 
 set(CMAKE_C_FLAGS   "${OBJECT_GEN_FLAGS} -std=gnu99  " CACHE INTERNAL "C Compiler options")
-set(CMAKE_CXX_FLAGS "${OBJECT_GEN_FLAGS} -std=c++11 -fno-threadsafe-statics -fno-exceptions -fno-non-call-exceptions -fno-use-cxa-atexit -fno-threadsafe-statics " CACHE INTERNAL "C++ Compiler options")
+set(CMAKE_CXX_FLAGS "${OBJECT_GEN_FLAGS} -std=c++11 -fno-threadsafe-statics -fno-exceptions -fno-non-call-exceptions -fno-use-cxa-atexit -fno-threadsafe-statics -ffast-math " CACHE INTERNAL "C++ Compiler options")
 set(CMAKE_ASM_FLAGS "${OBJECT_GEN_FLAGS} -x assembler-with-cpp " CACHE INTERNAL "ASM Compiler options")
 
 

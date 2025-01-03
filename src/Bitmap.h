@@ -18,6 +18,11 @@ struct Stream;
 	#define BITMAPCOLOR_G_SHIFT 16
 	#define BITMAPCOLOR_B_SHIFT  8
 	#define BITMAPCOLOR_A_SHIFT  0
+#elif defined BITMAP_16BPP && defined CC_BUILD_MRE
+	#define BITMAPCOLOR_B_SHIFT 0
+	#define BITMAPCOLOR_G_SHIFT 6
+	#define BITMAPCOLOR_R_SHIFT 11
+	#define BITMAPCOLOR_A_SHIFT 5
 #elif defined BITMAP_16BPP
 	#define BITMAPCOLOR_B_SHIFT  0
 	#define BITMAPCOLOR_G_SHIFT  5

@@ -12,6 +12,6 @@ void start_point(void) {
 
 void vm_main(void) {
 	thread_init();
-	thread_create(0x20000, start_point); //0x40000 is stack size
+	thread_create(0x10000, start_point); //0x40000 is stack size
 	thread_next();
 }

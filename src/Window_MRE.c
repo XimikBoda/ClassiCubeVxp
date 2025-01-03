@@ -36,6 +36,7 @@ void Window_Init(void) {
 	DisplayInfo.Height = screen_h;
 	DisplayInfo.ScaleX = 0.5f;
 	DisplayInfo.ScaleY = 0.5f;
+	DisplayInfo.FullRedraw = false;
 	//DisplayInfo.ScaleX = 1.f;
 	//DisplayInfo.ScaleY = 1.f;
 
@@ -47,8 +48,8 @@ void Window_Init(void) {
 	Window_Main.UIScaleX = DEFAULT_UI_SCALE_X;
 	Window_Main.UIScaleY = DEFAULT_UI_SCALE_Y;
 
-	DisplayInfo.ContentOffsetX = 10;
-	DisplayInfo.ContentOffsetY = 10;
+	//DisplayInfo.ContentOffsetX = 10;
+	//DisplayInfo.ContentOffsetY = 10;
 
 	vm_reg_pen_callback(MRE_pen_handler);
 	vm_reg_keyboard_callback(MRE_key_handler);
@@ -58,9 +59,13 @@ void Window_Init(void) {
 void Window_Free(void) {}
 
 void Window_Create2D(int width, int height) {
+	DisplayInfo.ScaleX = 0.5f;
+	DisplayInfo.ScaleY = 0.5f;
 }
 
 void Window_Create3D(int width, int height) {
+	DisplayInfo.ScaleX = 0.75f;
+	DisplayInfo.ScaleY = 0.75f;
 }
 
 void Window_Destroy(void) {}
@@ -99,14 +104,14 @@ void Window_AllocFramebuffer(struct Bitmap* bmp, int width, int height) {
 void Window_DrawFramebuffer(Rect2D r, struct Bitmap* bmp) {
 	int frame_buf_size = screen_w * screen_h;
 	cc_uint16* lbuf = layer_buf[0];
-	if (bmp) {
+	/*if (bmp) {
 		BitmapCol* sbuf = bmp->scan0;
 		for (int i = 0; i < frame_buf_size; i++) {
 			*lbuf++ = VM_COLOR_888_TO_565(BitmapCol_R(*sbuf), BitmapCol_G(*sbuf), BitmapCol_B(*sbuf));				
 			sbuf++;
 		}
-	}
-	vm_graphic_flush_layer(layer_hdl, 1);
+	}*/
+	vm_graphic_flush_layer(layer_hdl + 1, 1);
 }
 
 void Window_FreeFramebuffer(struct Bitmap* bmp) {

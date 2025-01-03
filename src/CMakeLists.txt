@@ -71,6 +71,7 @@ add_library(${PROJECT_NAME} STATIC
     Graphics_PSP.c
     Graphics_PSVita.c
     Graphics_Saturn.c
+    Graphics_Small3dlib.c
     Graphics_SoftGPU.c
     Graphics_WiiU.c
     Graphics_Xbox.c
