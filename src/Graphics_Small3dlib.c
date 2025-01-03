@@ -18,18 +18,14 @@ static struct Bitmap fb_bmp;
 #define S3L_USE_WIDER_TYPES 0
 #define S3L_SIN_METHOD 1
 
-#define S3L_MAX_Z_BUFFER_SIZE (2000*2000)
-
-
 #define S3L_RESOLUTION_X (fb_width)
 #define S3L_RESOLUTION_Y (fb_height)
-//#define S3L_MAX_PIXELS (500*500)
 
 #define S3L_PIXEL_FUNCTION drawPixel
 
 #include "../third_party/small3dlib/small3dlib.h"
 
-const int ortho_render_multiplier = 128;
+const float ortho_render_multiplier = 64;
 
 static S3L_Scene scene;
 
@@ -106,7 +102,7 @@ void Gfx_DeleteTexture(GfxResourceID* texId) {
 }
 
 GfxResourceID Gfx_AllocTexture(struct Bitmap* bmp, int rowWidth, cc_uint8 flags, cc_bool mipmaps) {
-	CCTexture* tex = (CCTexture*)Mem_Alloc(2 + bmp->width * bmp->height, 4, "Texture");
+	CCTexture* tex = (CCTexture*)Mem_Alloc(2 * 4 / BITMAPCOLOR_SIZE + bmp->width * bmp->height, BITMAPCOLOR_SIZE, "Texture");
 
 	tex->width = bmp->width;
 	tex->height = bmp->height;
@@ -314,9 +310,9 @@ void Gfx_CalcPerspectiveMatrix(struct Matrix* matrix, float fov, float aspect, f
 /*########################################################################################################################*
 *---------------------------------------------------------Rendering-------------------------------------------------------*
 *#########################################################################################################################*/
-static S3L_Unit vertices[30000];
-static S3L_Index triangles[60000];
-static S3L_Unit uv[20000];
+static S3L_Unit vertices[GFX_MAX_VERTICES * 3];
+static S3L_Index triangles[GFX_MAX_VERTICES * 6 / 4];
+static S3L_Unit uv[GFX_MAX_VERTICES * 2];
 static S3L_Model3D model;
 static S3L_Mat4 matrix;
 
@@ -344,10 +340,10 @@ void drawPixel(S3L_PixelInfo* p) {
 	int u = S3L_wrap(uv[0], curTexWidth);
 	int v = S3L_wrap(uv[1], curTexHeight);
 
-	uint32_t color = curTexPixels[u + v * curTexWidth];
+	BitmapCol color = curTexPixels[u + v * curTexWidth];
 
-	if (color >> 24 != 0x00)
-		fb_bmp.scan0[p->x + p->y * fb_bmp.width] = 0xFF000000 | color;
+	if (BitmapCol_A(color))
+		colorBuffer[p->x + p->y * fb_bmp.width] = color;
 	else
 		S3L_zBufferWrite(p->x, p->y, S3L_MAX_DEPTH);
 }
@@ -367,8 +363,6 @@ typedef struct Vertex_ {
 
 void DrawQuads(int startVertex, int verticesCount) {
 	if (gfx_format != VERTEX_FORMAT_TEXTURED)
-		return;
-	if (verticesCount >= 10000)
 		return;
 	for (int i = 0; i < verticesCount; ++i) {
 		char* ptr = (char*)gfx_vertices + (i + startVertex) * gfx_stride;
@@ -477,9 +471,19 @@ void Gfx_SetVSync(cc_bool vsync) {
 void Gfx_OnWindowResize(void) {
 	Window_FreeFramebuffer(&fb_bmp);
 
+	if (S3L_zBuffer) {
+		Mem_Free(S3L_zBuffer);
+		S3L_zBuffer = 0;
+	}
+
+#if S3L_Z_BUFFER == 1
+	S3L_zBuffer = (S3L_Unit*)Mem_Alloc(Game.Width * Game.Height, sizeof(S3L_Unit), "Texture");
+#elif S3L_Z_BUFFER == 2
+	S3L_zBuffer = (uint8_t*)Mem_Alloc(Game.Width * Game.Height, sizeof(uint8_t), "Texture");
+#endif
+
 	fb_width = Game.Width;
 	fb_height = Game.Height;
-	printf("%d:%d\n", fb_width, fb_height);
 
 	Window_AllocFramebuffer(&fb_bmp, Game.Width, Game.Height);
 	colorBuffer = fb_bmp.scan0;
