@@ -801,11 +801,11 @@ static inline void S3L_rotate2DPoint(S3L_Unit *x, S3L_Unit *y, S3L_Unit angle);
 
 #if S3L_Z_BUFFER == 1
   #define S3L_MAX_DEPTH 2147483647
-  S3L_Unit S3L_zBuffer[S3L_MAX_Z_BUFFER_SIZE];
+  S3L_Unit *S3L_zBuffer = 0;
   #define S3L_zBufferFormat(depth) (depth)
 #elif S3L_Z_BUFFER == 2
   #define S3L_MAX_DEPTH 255
-  uint8_t S3L_zBuffer[S3L_MAX_Z_BUFFER_SIZE];
+  uint8_t* S3L_zBuffer = 0;
   #define S3L_zBufferFormat(depth)\
     S3L_min(255,(depth) >> S3L_REDUCED_Z_BUFFER_GRANULARITY)
 #endif
