@@ -299,27 +299,64 @@ void Waitable_WaitFor(void* handle, cc_uint32 milliseconds) {
 /*########################################################################################################################*
 *---------------------------------------------------------Socket----------------------------------------------------------*
 *#########################################################################################################################*/
+struct port_and_address {
+	int port;
+	char host[];
+};
+
 cc_result Socket_ParseAddress(const cc_string* address, int port, cc_sockaddr* addrs, int* numValidAddrs) {
-	return ERR_NOT_SUPPORTED; //TODO
+	struct port_and_address* pa = addrs[0].data;
+	pa->port = port;
+	Mem_Copy(pa->host, address->buffer, address->length);
+	pa->host[address->length] = '\0';
+	addrs[0].size = 4 + address->length + 1;
+	*numValidAddrs = 1;
+	return 0;
 }
 
+static void MRE_tcp_callback(VMINT handle, VMINT event) {}
+
 cc_result Socket_Create(cc_socket* s, cc_sockaddr* addr, cc_bool nonblocking) {
-	return ERR_NOT_SUPPORTED;
+	struct port_and_address* pa = addr->data;
+	*s = vm_tcp_connect(pa->host, pa->port, 1, MRE_tcp_callback);
+	return *s < 0 ? -*s : 0;
 }
 
 cc_result Socket_Connect(cc_socket s, cc_sockaddr* addr) {
-	return ERR_NOT_SUPPORTED;
+	return 0;
 }
 
 cc_result Socket_Read(cc_socket s, cc_uint8* data, cc_uint32 count, cc_uint32* modified) {
-	return ERR_NOT_SUPPORTED;
+	int res = 0;
+	while (!res) {
+		res = vm_tcp_read(s, data, count);
+		if (!res)
+			thread_next();
+	}
+	if (res >= 0) {
+		*modified = res;
+		return 0;
+	}
+	return -res;
 }
 
 cc_result Socket_Write(cc_socket s, const cc_uint8* data, cc_uint32 count, cc_uint32* modified) {
-	return ERR_NOT_SUPPORTED;
+	int res = 0;
+	while (!res) {
+		res = vm_tcp_write(s, data, count);
+		if (!res)
+			thread_next();
+	}
+
+	if (res >= 0) {
+		*modified = res;
+		return 0;
+	}
+	return -res;
 }
 
 void Socket_Close(cc_socket s) {
+	vm_tcp_close(s);
 }
 
 cc_result Socket_CheckReadable(cc_socket s, cc_bool* readable) {
