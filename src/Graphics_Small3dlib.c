@@ -353,14 +353,6 @@ void Gfx_SetVertexFormat(VertexFormat fmt) {
 	gfx_stride = strideSizes[fmt];
 }
 
-typedef struct Vector3 { float x, y, z; } Vector3;
-typedef struct Vector2 { float x, y; } Vector2;
-typedef struct Vertex_ {
-	float x, y, z, w;
-	float u, v;
-	PackedCol c;
-} Vertex;
-
 void DrawQuads(int startVertex, int verticesCount) {
 	if (gfx_format != VERTEX_FORMAT_TEXTURED)
 		return;
@@ -379,7 +371,7 @@ void DrawQuads(int startVertex, int verticesCount) {
 		}
 	}
 
-	if (!depthTest)
+	if (gfx_rendering2D)
 		for (int i = 0; i < verticesCount * 3; ++i)
 			vertices[i] /= ortho_render_multiplier;
 
@@ -425,7 +417,7 @@ void DrawQuads(int startVertex, int verticesCount) {
 	model.config.backfaceCulling = 0;// faceCulling ? 2 : 0;
 
 	S3L_sceneInit(&model, 1, &scene);
-	if (!depthTest) 
+	if (gfx_rendering2D)
 		scene.camera.focalLength = 0;
 	previousTriangle = -1;
 	S3L_drawScene(scene);
